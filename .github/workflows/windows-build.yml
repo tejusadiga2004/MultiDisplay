@@ -1,0 +1,134 @@
+name: Build Windows
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+# A newer run for the same branch/PR supersedes the one in progress.
+concurrency:
+  group: windows-build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # The app uses Flutter's experimental windowing API (SPEC C-7), which breaks
+  # between Flutter versions. CI therefore builds with the exact `main` commit
+  # the app was developed against (Flutter 3.49.0-1.0.pre-200). To upgrade,
+  # change this SHA after verifying the app still builds and runs.
+  FLUTTER_COMMIT: fab991537bf1ffb063579a0dd8a47cd4f2874618
+  FLUTTER_DIR: C:\flutter
+
+jobs:
+  build:
+    name: Windows (x64, release)
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      # --- Flutter (pinned `main` commit) -----------------------------------
+      - name: Install Flutter at the pinned commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Partial clone: history only, file contents fetched for the checkout.
+          git clone --filter=blob:none --no-checkout https://github.com/flutter/flutter.git "$FLUTTER_DIR"
+          git -C "$FLUTTER_DIR" checkout --detach "$FLUTTER_COMMIT"
+          echo "$FLUTTER_DIR\\bin" >> "$GITHUB_PATH"
+
+      - name: Enable Flutter multi-window support
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PATH="$FLUTTER_DIR/bin:$PATH"
+          flutter config --enable-windowing
+          flutter config --no-analytics --enable-windows-desktop
+          # The windowing API throws at runtime unless this flag is on, so fail
+          # here (with a clear message) if it did not take effect.
+          flutter --version
+          if ! flutter doctor -v | grep -E 'Feature flags:.*enable-windowing' > /dev/null; then
+            echo "::error::enable-windowing is not active (flutter config --enable-windowing)"
+            exit 1
+          fi
+
+      - name: Verify the pinned Flutter commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git -C "$FLUTTER_DIR" rev-parse HEAD)"
+          if [ "$actual" != "$FLUTTER_COMMIT" ]; then
+            echo "::error::Flutter is at $actual but $FLUTTER_COMMIT is pinned"
+            exit 1
+          fi
+
+      # --- Rust (Windows platform layer) ------------------------------------
+      - name: Install Rust (stable, MSVC)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~\.cargo\registry
+            ~\.cargo\git
+            build\windows\x64\plugins\display_capture\rust-target
+          key: rust-${{ runner.os }}-${{ hashFiles('packages/display_capture/native/Cargo.lock') }}
+          restore-keys: rust-${{ runner.os }}-
+
+      # --- Dart dependencies -------------------------------------------------
+      - name: Cache pub packages
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\Pub\Cache
+          key: pub-${{ runner.os }}-${{ env.FLUTTER_COMMIT }}-${{ hashFiles('pubspec.lock') }}
+          restore-keys: pub-${{ runner.os }}-${{ env.FLUTTER_COMMIT }}-
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      # --- Static checks and tests ------------------------------------------
+      - name: Analyze (app and API package)
+        run: |
+          flutter analyze
+          flutter analyze packages/display_capture_api
+
+      - name: Dart tests (app)
+        if: ${{ hashFiles('test/**/*_test.dart') != '' }}
+        run: flutter test
+
+      - name: Dart tests (API package)
+        if: ${{ hashFiles('packages/display_capture_api/test/**/*_test.dart') != '' }}
+        working-directory: packages/display_capture_api
+        run: flutter test
+
+      - name: Rust tests (platform layer)
+        run: cargo test --manifest-path packages/display_capture/native/Cargo.toml -p dc-windows
+
+      # --- Build -------------------------------------------------------------
+      # Also compiles the Rust DLL (dc_windows.dll) through the plugin's CMake.
+      - name: Build Windows (release)
+        run: flutter build windows --release
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $release = 'build\windows\x64\runner\Release'
+          foreach ($f in 'display_controller.exe', 'dc_windows.dll', 'display_capture_plugin.dll', 'flutter_windows.dll') {
+            if (-not (Test-Path (Join-Path $release $f))) { throw "Missing build output: $f" }
+          }
+          Compress-Archive -Path "$release\*" -DestinationPath display-controller-windows-x64.zip
+          Get-Item display-controller-windows-x64.zip | Select-Object Name, Length
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: display-controller-windows-x64
+          path: display-controller-windows-x64.zip
+          if-no-files-found: error
+          retention-days: 14
