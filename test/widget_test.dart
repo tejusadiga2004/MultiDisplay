@@ -1,17 +1,34 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:display_capture_api/display_capture_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:display_controller/services/app_services.dart';
-import 'package:display_controller/services/flutter_windowing_service.dart';
 import 'package:display_controller/services/settings_store.dart';
+import 'package:display_controller/services/window_service.dart';
+
+class _UnusedWindowService implements WindowService {
+  @override
+  Stream<WindowEvent> get events => const Stream.empty();
+
+  @override
+  bool isOpen(String displayId) => false;
+
+  @override
+  Future<void> open(DisplayWindowSpec spec) =>
+      throw StateError('This widget test must not open native windows');
+
+  @override
+  Future<void> close(String displayId) async {}
+
+  @override
+  Future<void> closeAll() async {}
+
+  @override
+  void updateDisplay(DisplayInfo info) {}
+
+  @override
+  void report(WindowEvent event) {}
+}
 
 void main() {
   testWidgets('AppServices can host a simple scaffold', (
@@ -27,7 +44,7 @@ void main() {
         ),
       ],
     );
-    final windows = FlutterWindowingService(onControllerClosed: () async {});
+    final windows = _UnusedWindowService();
 
     await tester.pumpWidget(
       AppServices(
