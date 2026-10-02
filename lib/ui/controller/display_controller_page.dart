@@ -39,8 +39,12 @@ class DisplayControllerPage extends HookWidget {
 
     return CallbackShortcuts(
       bindings: {
-        const SingleActivator(LogicalKeyboardKey.keyD, control: true, shift: true):
-            () => _showDiagnostics(context),
+        const SingleActivator(
+          LogicalKeyboardKey.keyD,
+          control: true,
+          shift: true,
+        ): () =>
+            _showDiagnostics(context),
       },
       child: Focus(
         autofocus: true,
@@ -65,13 +69,18 @@ class DisplayControllerPage extends HookWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Display Controller',
-                                style: textTheme.headlineSmall),
-                            Text(subtitle,
-                                style: textTheme.bodyMedium?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant)),
+                            Text(
+                              'Display Controller',
+                              style: textTheme.headlineSmall,
+                            ),
+                            Text(
+                              subtitle,
+                              style: textTheme.bodyMedium?.copyWith(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -82,17 +91,21 @@ class DisplayControllerPage extends HookWidget {
                     !permissionBannerDismissed.value)
                   MaterialBanner(
                     content: const Text(
-                        'Screen Recording permission is required to show displays.'),
+                      'Screen Recording permission is required to show displays. After granting access, relaunch Display Controller.',
+                    ),
                     actions: [
                       TextButton(
-                          onPressed: vm.actions.requestPermission,
-                          child: const Text('Grant Access')),
+                        onPressed: vm.actions.requestPermission,
+                        child: const Text('Grant Access'),
+                      ),
                       TextButton(
-                          onPressed: vm.actions.openPermissionSettings,
-                          child: const Text('Open Settings')),
+                        onPressed: vm.actions.openPermissionSettings,
+                        child: const Text('Open Settings'),
+                      ),
                       TextButton(
-                          onPressed: () => permissionBannerDismissed.value = true,
-                          child: const Text('Dismiss')),
+                        onPressed: () => permissionBannerDismissed.value = true,
+                        child: const Text('Dismiss'),
+                      ),
                     ],
                   ),
                 Expanded(child: _body(context, vm)),
@@ -116,15 +129,20 @@ class DisplayControllerPage extends HookWidget {
             children: [
               const Icon(Icons.error_outline, size: 48),
               const SizedBox(height: 12),
-              Text("Couldn't read displays",
-                  style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                "Couldn't read displays",
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               if (state.errorMessage != null)
                 Padding(
                   padding: const EdgeInsets.all(8),
                   child: Text(state.errorMessage!, textAlign: TextAlign.center),
                 ),
               const SizedBox(height: 8),
-              FilledButton(onPressed: vm.actions.retry, child: const Text('Retry')),
+              FilledButton(
+                onPressed: vm.actions.retry,
+                child: const Text('Retry'),
+              ),
             ],
           ),
         );
@@ -163,11 +181,15 @@ class DisplayControllerPage extends HookWidget {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Diagnostics'),
-        content: SelectableText('Render path: ${d.renderPath}\n'
-            'Backend: ${d.backend}\nGPU: ${d.gpuName}\nDriver: ${d.driver}'),
+        content: SelectableText(
+          'Render path: ${d.renderPath}\n'
+          'Backend: ${d.backend}\nGPU: ${d.gpuName}\nDriver: ${d.driver}',
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.of(context).pop(), child: const Text('Close'))
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
         ],
       ),
     );

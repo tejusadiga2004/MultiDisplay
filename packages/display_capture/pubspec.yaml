@@ -1,5 +1,5 @@
 name: display_capture
-description: "Native platform layer (Windows) for the Display Controller: display enumeration and GPU screen capture."
+description: "Native display capture and GPU rendering plugin for the Display Controller."
 version: 0.1.0
 publish_to: 'none'
 
@@ -16,3 +16,5 @@ flutter:
     platforms:
       windows:
         pluginClass: DisplayCapturePluginCApi
+      macos:
+        pluginClass: DisplayCapturePlugin

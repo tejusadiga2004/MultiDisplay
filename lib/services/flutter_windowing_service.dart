@@ -1,4 +1,4 @@
-﻿// This is the ONLY file that imports Flutter's experimental windowing API
+// This is the ONLY file that imports Flutter's experimental windowing API
 // (SPEC C-7). The API is @internal and may break between Flutter versions; the
 // app is pinned to the Flutter `main` checkout recorded in README.md.
 // ignore_for_file: invalid_use_of_internal_member, implementation_imports
@@ -10,6 +10,7 @@ import 'package:display_capture_api/display_capture_api.dart';
 import 'package:flutter/widgets.dart';
 // ignore: unused_import
 import 'package:flutter/src/widgets/_window.dart';
+import 'package:flutter/src/widgets/_window_macos.dart';
 import 'package:flutter/src/widgets/_window_win32.dart';
 
 import '../ui/display_window/display_window_page.dart';
@@ -17,10 +18,14 @@ import '../ui/theme.dart';
 import 'window_service.dart';
 
 const Size kControllerWindowSize = Size(560, 640);
-const BoxConstraints kControllerWindowConstraints =
-    BoxConstraints(minWidth: 480, minHeight: 360);
-const BoxConstraints kDisplayWindowConstraints =
-    BoxConstraints(minWidth: 320, minHeight: 180);
+const BoxConstraints kControllerWindowConstraints = BoxConstraints(
+  minWidth: 480,
+  minHeight: 360,
+);
+const BoxConstraints kDisplayWindowConstraints = BoxConstraints(
+  minWidth: 320,
+  minHeight: 180,
+);
 const Duration kOpenTimeout = Duration(seconds: 20);
 
 class _OpenWindow {
@@ -75,7 +80,8 @@ class FlutterWindowingService implements WindowService {
   final Future<void> Function() onControllerClosed;
 
   final Map<String, _OpenWindow> _open = {};
-  final StreamController<WindowEvent> _events = StreamController<WindowEvent>.broadcast();
+  final StreamController<WindowEvent> _events =
+      StreamController<WindowEvent>.broadcast();
   WindowRegistry? _registry;
 
   @override
@@ -109,7 +115,10 @@ class FlutterWindowingService implements WindowService {
     if (Platform.isWindows) {
       return (c as BaseWindowControllerWin32).windowHandle.address;
     }
-    throw UnsupportedError('Only Windows is implemented');
+    if (Platform.isMacOS) {
+      return (c as BaseWindowControllerMacOS).windowHandle.address;
+    }
+    throw UnsupportedError('Only Windows and macOS are supported');
   }
 
   @override
@@ -147,8 +156,10 @@ class FlutterWindowingService implements WindowService {
     try {
       await record.pendingReady!.future.timeout(kOpenTimeout);
     } on TimeoutException {
-      throw const CaptureError(CaptureErrorCode.internal,
-          'Timed out while starting the display window');
+      throw const CaptureError(
+        CaptureErrorCode.internal,
+        'Timed out while starting the display window',
+      );
     }
   }
 
@@ -174,8 +185,12 @@ class FlutterWindowingService implements WindowService {
     if (rec == null) return;
     final pending = rec.pendingReady;
     if (pending != null && !pending.isCompleted) {
-      pending.completeError(const CaptureError(
-          CaptureErrorCode.internal, 'The window was closed before it finished starting'));
+      pending.completeError(
+        const CaptureError(
+          CaptureErrorCode.internal,
+          'The window was closed before it finished starting',
+        ),
+      );
     }
     // The window must be unregistered before it is destroyed.
     _registry?.unregister(rec.entry);
@@ -198,4 +213,3 @@ class FlutterWindowingService implements WindowService {
     _open[info.id]?.spec.info.value = info;
   }
 }
-

@@ -1,5 +1,6 @@
 # Generates the Display Controller app icon:
 #   windows/runner/resources/app_icon.ico   (16..256 px, PNG-compressed frames)
+#   macos/Runner/Assets.xcassets/AppIcon.appiconset (16..1024 px)
 #   assets/icon/app_icon.png                (512 px, used inside the Flutter UI)
 #
 # Run from the repository root:  powershell -File tools/make_icon.ps1
@@ -10,8 +11,9 @@ Add-Type -AssemblyName System.Drawing
 
 $root = Split-Path -Parent $PSScriptRoot
 $icoPath = Join-Path $root 'windows\runner\resources\app_icon.ico'
+$macIconDir = Join-Path $root 'macos\Runner\Assets.xcassets\AppIcon.appiconset'
 $pngPath = Join-Path $root 'assets\icon\app_icon.png'
-New-Item -ItemType Directory -Force (Split-Path $icoPath), (Split-Path $pngPath) | Out-Null
+New-Item -ItemType Directory -Force (Split-Path $icoPath), $macIconDir, (Split-Path $pngPath) | Out-Null
 
 function New-RoundedRect([single]$x, [single]$y, [single]$w, [single]$h, [single]$r) {
   $p = New-Object System.Drawing.Drawing2D.GraphicsPath
@@ -105,6 +107,16 @@ function Resize-Png([System.Drawing.Bitmap]$src, [int]$size) {
 # UI asset
 $ui = Resize-Png $master 512
 [System.IO.File]::WriteAllBytes($pngPath, $ui)
+
+# macOS app icon asset catalog
+$macSizes = 16, 32, 64, 128, 256, 512, 1024
+foreach ($s in $macSizes) {
+  $bytes = Resize-Png $master $s
+  [System.IO.File]::WriteAllBytes(
+    (Join-Path $macIconDir "app_icon_$s.png"),
+    $bytes
+  )
+}
 
 # ICO with PNG-compressed frames
 $sizes = 16, 20, 24, 32, 40, 48, 64, 96, 128, 256
