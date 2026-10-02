@@ -24,6 +24,7 @@ public final class DisplayCapturePlugin: NSObject, FlutterPlugin, @unchecked Sen
     private var closeObservers: [Int: NSObjectProtocol] = [:]
     private var displayChangeWork: DispatchWorkItem?
     private var permissionNeedsRelaunch = false
+    private var shuttingDown = false
 
     private var methodChannel: FlutterMethodChannel!
     private var displaysChannel: FlutterEventChannel!
@@ -126,6 +127,8 @@ public final class DisplayCapturePlugin: NSObject, FlutterPlugin, @unchecked Sen
             let args = call.arguments as? [String: Any]
             stopCapture((args?["sessionId"] as? NSNumber)?.int64Value ?? 0)
             result(nil)
+        case "prepareShutdown":
+            prepareShutdown(call, result: result)
         case "permissionState":
             let granted = CGPreflightScreenCaptureAccess()
             let requested = UserDefaults.standard.bool(forKey: permissionRequestedKey)
@@ -338,6 +341,10 @@ public final class DisplayCapturePlugin: NSObject, FlutterPlugin, @unchecked Sen
                         ))
                         return
                     }
+                    guard !self.shuttingDown else {
+                        result(FlutterError(code: "INTERNAL", message: "Application is shutting down", details: nil))
+                        return
+                    }
                     self.createCapture(display: display, content: content, args: args, result: result)
                 }
             } catch {
@@ -511,24 +518,59 @@ public final class DisplayCapturePlugin: NSObject, FlutterPlugin, @unchecked Sen
         ))
     }
 
-    private func stopCapture(_ sessionId: Int64) {
-        guard let record = sessions.removeValue(forKey: sessionId) else { return }
+    private func stopCapture(_ sessionId: Int64, completion: ((Error?) -> Void)? = nil) {
+        guard let record = sessions.removeValue(forKey: sessionId) else {
+            completion?(nil)
+            return
+        }
         record.output.stop()
         record.stream.stopCapture { error in
             if let error {
                 captureLogger.error("Stopping capture session \(sessionId) failed: \(error.localizedDescription, privacy: .public)")
             }
             DispatchQueue.main.async {
+                var failure = error
                 do {
                     try record.stream.removeStreamOutput(record.output, type: .screen)
                 } catch {
                     captureLogger.error("Removing capture output failed: \(error.localizedDescription, privacy: .public)")
+                    failure = failure ?? error
                 }
                 record.eventChannel?.setStreamHandler(nil)
                 self.textureRegistry.unregisterTexture(record.textureId)
+                completion?(failure)
             }
         }
-        record.output.stop()
+    }
+
+    private func prepareShutdown(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+        guard let args = call.arguments as? [String: Any],
+              let handle = (args["nativeHandle"] as? NSNumber)?.intValue,
+              let controller = window(for: handle) else {
+            result(FlutterError(code: "INTERNAL", message: "nativeHandle is not a valid NSWindow", details: nil))
+            return
+        }
+        shuttingDown = true
+        controller.orderOut(nil)
+        for handle in Set(sessions.values.compactMap(\.ownerHandle)) {
+            window(for: handle)?.orderOut(nil)
+        }
+        let group = DispatchGroup()
+        var failure: Error?
+        for id in Array(sessions.keys) {
+            group.enter()
+            stopCapture(id) { error in
+                failure = failure ?? error
+                group.leave()
+            }
+        }
+        group.notify(queue: .main) {
+            if let failure {
+                result(FlutterError(code: "INTERNAL", message: failure.localizedDescription, details: nil))
+            } else {
+                result(nil)
+            }
+        }
     }
 
     private func setupDisplayWindow(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -547,7 +589,14 @@ public final class DisplayCapturePlugin: NSObject, FlutterPlugin, @unchecked Sen
         window.titleVisibility = .hidden
         window.styleMask.insert(.fullSizeContentView)
         window.level = .floating
-        window.collectionBehavior.formUnion([.canJoinAllSpaces, .fullScreenAuxiliary])
+        if (args["allowFullScreen"] as? Bool) == true {
+            // A full-screen primary window gets its own Space, so it cannot
+            // also join all Spaces or be auxiliary.
+            window.collectionBehavior.remove([.canJoinAllSpaces, .fullScreenAuxiliary])
+            window.collectionBehavior.insert(.fullScreenPrimary)
+        } else {
+            window.collectionBehavior.formUnion([.canJoinAllSpaces, .fullScreenAuxiliary])
+        }
         window.isMovableByWindowBackground = false
         window.setFrame(
             CGRect(origin: origin, size: frame.size),
@@ -604,7 +653,7 @@ public final class DisplayCapturePlugin: NSObject, FlutterPlugin, @unchecked Sen
             let sessionsToStop = self.sessions.values
                 .filter { $0.ownerHandle == handle }
                 .map(\.id)
-            sessionsToStop.forEach(self.stopCapture)
+            sessionsToStop.forEach { self.stopCapture($0) }
         }
     }
 

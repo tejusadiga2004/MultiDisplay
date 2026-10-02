@@ -114,11 +114,17 @@ class PluginDisplayCaptureApi implements DisplayCaptureApi {
   Future<void> openPermissionSettings() => _invoke<void>('openPermissionSettings');
 
   @override
+  Future<void> prepareShutdown({required int nativeHandle}) =>
+      _invoke<void>('prepareShutdown', {'nativeHandle': nativeHandle});
+
+  @override
   Future<void> setupDisplayWindow({
     required int nativeHandle,
     required WindowFrame initialFrame,
+    bool allowFullScreen = false,
   }) =>
       _invoke<void>('setupDisplayWindow', {
+        'allowFullScreen': allowFullScreen,
         'nativeHandle': nativeHandle,
         'x': initialFrame.x,
         'y': initialFrame.y,

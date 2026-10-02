@@ -1,33 +1,11 @@
 import 'dart:math' as math;
 
-import 'package:display_capture_api/display_capture_api.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../services/display_layout.dart';
+export '../../services/display_layout.dart' show displayLayoutRect;
 import 'display_controller_state.dart';
 import 'display_row.dart';
-
-/// Rectangle of [d] in a single y-down coordinate space shared by all displays
-/// on the current platform, suitable for drawing the monitor arrangement.
-///
-/// Windows reports physical px in the virtual desktop (already consistent).
-/// macOS reports Cocoa (y-up) origins scaled by each screen's own backing
-/// factor, so convert back to points and flip the y axis.
-Rect displayLayoutRect(DisplayInfo d, {TargetPlatform? platform}) {
-  final p = platform ?? defaultTargetPlatform;
-  if (p == TargetPlatform.macOS) {
-    final s = d.scaleFactor > 0 ? d.scaleFactor : 1.0;
-    final w = d.widthPx / s;
-    final h = d.heightPx / s;
-    return Rect.fromLTWH(d.originX / s, -(d.originY / s + h), w, h);
-  }
-  return Rect.fromLTWH(
-    d.originX.toDouble(),
-    d.originY.toDouble(),
-    d.widthPx.toDouble(),
-    d.heightPx.toDouble(),
-  );
-}
 
 /// Displays drawn as rectangles in their OS arrangement. Tapping a rectangle
 /// toggles that display, exactly like the switch in the list view.

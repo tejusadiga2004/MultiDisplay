@@ -72,11 +72,22 @@ class FakeDisplayCaptureApi implements DisplayCaptureApi {
   Future<void> openPermissionSettings() async => calls.add('openPermissionSettings');
 
   @override
+  Future<void> prepareShutdown({required int nativeHandle}) async {
+    calls.add('prepareShutdown:$nativeHandle');
+    for (final id in activeSessions) {
+      await stopCapture(id);
+    }
+  }
+
+  @override
   Future<void> setupDisplayWindow({
     required int nativeHandle,
     required WindowFrame initialFrame,
-  }) async =>
-      calls.add('setupDisplayWindow:$nativeHandle');
+    bool allowFullScreen = false,
+  }) async {
+    calls.add('setupDisplayWindow:$nativeHandle');
+    if (allowFullScreen) calls.add('allowFullScreen:$nativeHandle');
+  }
 
   @override
   Stream<CloseHoverEvent> get closeHoverEvents => _hover.stream;

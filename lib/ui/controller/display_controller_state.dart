@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 
 enum ViewStatus { loading, ready, error }
 
+enum DisplayWindowMode { separate, composite }
+
 @immutable
 class DisplayRowState {
   const DisplayRowState({
@@ -40,12 +42,16 @@ class DisplayControllerState {
     this.rows = const [],
     this.permission = PermissionState.granted,
     this.errorMessage,
+    this.windowMode = DisplayWindowMode.separate,
+    this.switchingMode = false,
   });
 
   final ViewStatus status;
   final List<DisplayRowState> rows;
   final PermissionState permission;
   final String? errorMessage;
+  final DisplayWindowMode windowMode;
+  final bool switchingMode;
 
   DisplayControllerState copyWith({
     ViewStatus? status,
@@ -53,13 +59,16 @@ class DisplayControllerState {
     PermissionState? permission,
     String? errorMessage,
     bool clearError = false,
-  }) =>
-      DisplayControllerState(
-        status: status ?? this.status,
-        rows: rows ?? this.rows,
-        permission: permission ?? this.permission,
-        errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
-      );
+    DisplayWindowMode? windowMode,
+    bool? switchingMode,
+  }) => DisplayControllerState(
+    status: status ?? this.status,
+    rows: rows ?? this.rows,
+    permission: permission ?? this.permission,
+    errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+    windowMode: windowMode ?? this.windowMode,
+    switchingMode: switchingMode ?? this.switchingMode,
+  );
 
   @override
   bool operator ==(Object other) =>
@@ -67,11 +76,19 @@ class DisplayControllerState {
       other.status == status &&
       listEquals(other.rows, rows) &&
       other.permission == permission &&
+      other.windowMode == windowMode &&
+      other.switchingMode == switchingMode &&
       other.errorMessage == errorMessage;
 
   @override
-  int get hashCode =>
-      Object.hash(status, Object.hashAll(rows), permission, errorMessage);
+  int get hashCode => Object.hash(
+    status,
+    Object.hashAll(rows),
+    permission,
+    errorMessage,
+    windowMode,
+    switchingMode,
+  );
 }
 
 /// One-shot side effects the page turns into SnackBars (SPEC §9.0).

@@ -9,7 +9,11 @@ import 'use_display_window_view_model.dart';
 import 'window_chrome.dart';
 
 class DisplayWindowPage extends HookWidget {
-  const DisplayWindowPage({super.key, required this.spec, required this.nativeHandle});
+  const DisplayWindowPage({
+    super.key,
+    required this.spec,
+    required this.nativeHandle,
+  });
 
   final DisplayWindowSpec spec;
   final int nativeHandle;
@@ -34,19 +38,23 @@ class DisplayWindowPage extends HookWidget {
                 width: s.widthPx.toDouble(),
                 height: s.heightPx.toDouble(),
                 child: Texture(
-                    textureId: s.textureId!, filterQuality: FilterQuality.medium),
+                  textureId: s.textureId!,
+                  filterQuality: FilterQuality.medium,
+                ),
               ),
             )
           else
             const SizedBox.shrink(),
           // Transparent title strip: the native title bar behaviour lives here.
           const Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              height: kTitleStripHeight,
-              child: IgnorePointer(child: SizedBox.expand())),
-          WindowsCloseButtonVisual(nativeHandle: nativeHandle),
+            top: 0,
+            left: 0,
+            right: 0,
+            height: kTitleStripHeight,
+            child: IgnorePointer(child: SizedBox.expand()),
+          ),
+          if (spec.managesWindow)
+            WindowsCloseButtonVisual(nativeHandle: nativeHandle),
           if (s.status == DisplayWindowStatus.starting)
             const Center(child: CircularProgressIndicator())
           else
@@ -81,9 +89,11 @@ class _FailedOverlay extends StatelessWidget {
           children: [
             const Icon(Icons.error_outline, color: Colors.white70, size: 40),
             const SizedBox(height: 12),
-            Text(error?.message ?? 'Capture failed',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white)),
+            Text(
+              error?.message ?? 'Capture failed',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white),
+            ),
             const SizedBox(height: 12),
             FilledButton(onPressed: onRetry, child: const Text('Retry')),
           ],

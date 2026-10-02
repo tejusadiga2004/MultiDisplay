@@ -55,6 +55,27 @@ flutter build macos --release
 On first launch, grant Screen Recording access in System Settings and relaunch
 Display Controller before starting a capture.
 
+## Capture window modes
+
+The Controller's **Capture windows** control switches between:
+
+- **Separate windows** (default): one capture window per selected display,
+  preserving the existing placement, sizing and close behavior.
+- **Single layout**: one window containing the selected displays in their current
+  desktop arrangement. Negative origins, vertical offsets, mixed macOS backing
+  scales and gaps are preserved; the complete layout is fitted into the window
+  without stretching the capture textures.
+
+The mode is independent of the **List / Layout** selection view. Switching modes
+retains selected displays and recreates the output windows. Mode choice lasts
+for the current launch; enabled display IDs continue to be saved between launches.
+Newly connected monitors appear unselected. In Single layout, selection changes,
+monitor moves and disconnects update the existing composite window; deselecting
+the last display closes it. Closing the composite window clears all selections.
+Capture failures are shown within the affected tile with a Retry button and do
+not close other captures. Both modes retain always-on-top and capture-exclusion
+behavior.
+
 ## Continuous integration
 
 [`.github/workflows/windows-build.yml`](.github/workflows/windows-build.yml) runs

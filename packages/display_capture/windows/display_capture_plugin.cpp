@@ -244,6 +244,21 @@ void DisplayCapturePlugin::HandleMethodCall(
   } else if (name == "stopCapture") {
     StopCapture(GetInt(a, "sessionId", 0));
     result->Success();
+  } else if (name == "prepareShutdown") {
+    const auto controller = reinterpret_cast<HWND>(GetInt(a, "nativeHandle", 0));
+    if (!IsWindow(controller)) {
+      result->Error("INTERNAL", "nativeHandle is not a valid HWND");
+      return;
+    }
+    ShowWindow(controller, SW_HIDE);
+    std::vector<int64_t> ids;
+    for (const auto& kv : sessions_) {
+      const auto owner = reinterpret_cast<HWND>(kv.second->owner_window);
+      if (IsWindow(owner)) ShowWindow(owner, SW_HIDE);
+      ids.push_back(kv.first);
+    }
+    for (int64_t id : ids) StopCapture(id);
+    result->Success();
   } else if (name == "permissionState") {
     result->Success(EncodableValue(std::string("granted")));
   } else if (name == "requestPermission" || name == "openPermissionSettings") {
@@ -482,4 +497,3 @@ void DisplayCapturePlugin::OnDisplayChange(void* user) {
 }
 
 }  // namespace display_capture
-

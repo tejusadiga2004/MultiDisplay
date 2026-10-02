@@ -13,11 +13,13 @@ class DisplayWindowLogic {
     required this.windows,
     required this.spec,
     required this.nativeHandle,
-  }) : state = ValueNotifier(DisplayWindowState(
-          name: spec.info.value.name,
-          widthPx: spec.info.value.widthPx,
-          heightPx: spec.info.value.heightPx,
-        ));
+  }) : state = ValueNotifier(
+         DisplayWindowState(
+           name: spec.info.value.name,
+           widthPx: spec.info.value.widthPx,
+           heightPx: spec.info.value.heightPx,
+         ),
+       );
 
   final DisplayCaptureApi api;
   final WindowService windows;
@@ -52,35 +54,47 @@ class DisplayWindowLogic {
 
   Future<void> _startAll() async {
     try {
-      if (!_setupDone) {
+      if (!_setupDone && spec.managesWindow) {
         await api.setupDisplayWindow(
-            nativeHandle: nativeHandle, initialFrame: spec.initialFrame);
+          nativeHandle: nativeHandle,
+          initialFrame: spec.initialFrame,
+        );
         _setupDone = true;
       }
-      final session = await api.startCapture(displayId,
-          options: CaptureOptions(ownerWindowHandle: nativeHandle));
+      final session = await api.startCapture(
+        displayId,
+        options: CaptureOptions(ownerWindowHandle: nativeHandle),
+      );
       if (_disposed) {
         await api.stopCapture(session.sessionId);
         return;
       }
       _session = session;
       _eventSub = api.captureEvents(session.sessionId).listen(_onCaptureEvent);
-      _set(_s.copyWith(
-        status: DisplayWindowStatus.running,
-        textureId: session.textureId,
-        widthPx: session.widthPx,
-        heightPx: session.heightPx,
-        clearError: true,
-      ));
-      windows.report(WindowReady(displayId));
+      _set(
+        _s.copyWith(
+          status: DisplayWindowStatus.running,
+          textureId: session.textureId,
+          widthPx: session.widthPx,
+          heightPx: session.heightPx,
+          clearError: true,
+        ),
+      );
+      if (spec.managesWindow && spec.active) {
+        windows.report(WindowReady(displayId));
+      }
     } on Object catch (e) {
-      _fail(e is CaptureError ? e : CaptureError(CaptureErrorCode.internal, '$e'));
+      _fail(
+        e is CaptureError ? e : CaptureError(CaptureErrorCode.internal, '$e'),
+      );
     }
   }
 
   void _fail(CaptureError error) {
     _set(_s.copyWith(status: DisplayWindowStatus.failed, error: error));
-    windows.report(WindowFailed(displayId, error));
+    if (spec.managesWindow && spec.active) {
+      windows.report(WindowFailed(displayId, error));
+    }
   }
 
   void _onCaptureEvent(CaptureEvent e) {
@@ -88,8 +102,18 @@ class DisplayWindowLogic {
       case FrameSizeChanged(:final widthPx, :final heightPx):
         _set(_s.copyWith(widthPx: widthPx, heightPx: heightPx));
       case DisplayLost():
-        _set(_s.copyWith(status: DisplayWindowStatus.closed));
-        unawaited(windows.close(displayId));
+        if (spec.managesWindow) {
+          _set(_s.copyWith(status: DisplayWindowStatus.closed));
+          if (spec.active) unawaited(windows.close(displayId));
+        } else {
+          unawaited(_stopSession());
+          _fail(
+            const CaptureError(
+              CaptureErrorCode.internal,
+              'Display disconnected',
+            ),
+          );
+        }
       case CaptureFailed(:final error):
         unawaited(_stopSession());
         _fail(error);
@@ -116,8 +140,8 @@ class DisplayWindowLogic {
     if (s != null) {
       try {
         await api.stopCapture(s.sessionId);
-      } on Object {
-        // best effort: the native layer also stops sessions of destroyed windows
+      } on Object catch (error) {
+        debugPrint('Could not stop capture for $displayId: $error');
       }
     }
   }
@@ -130,7 +154,9 @@ class DisplayWindowLogic {
       await _stopSession();
     } finally {
       // The event MUST be reported even if stopCapture failed.
-      windows.report(WindowClosed(displayId));
+      if (spec.managesWindow && spec.active) {
+        windows.report(WindowClosed(displayId));
+      }
     }
   }
 }

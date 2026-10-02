@@ -21,6 +21,38 @@ class DisplayWindowSpec {
 
   /// Initial content size in logical px, passed to the window constructor.
   final ({double width, double height}) logicalSize;
+
+  // Invalidated before unregistering so late async capture callbacks cannot
+  // change the selection or close a replacement window with the same ID.
+  bool active = true;
+  bool get managesWindow => true;
+}
+
+const compositeWindowId = 'composite:desktop';
+
+class CompositeWindowSpec extends DisplayWindowSpec {
+  CompositeWindowSpec({
+    required super.display,
+    required super.initialFrame,
+    required super.logicalSize,
+    required List<DisplayInfo> displays,
+  }) : displays = ValueNotifier(List<DisplayInfo>.unmodifiable(displays));
+
+  final ValueNotifier<List<DisplayInfo>> displays;
+
+  @override
+  String get displayId => compositeWindowId;
+}
+
+class EmbeddedDisplaySpec extends DisplayWindowSpec {
+  EmbeddedDisplaySpec({
+    required super.display,
+    required super.initialFrame,
+    required super.logicalSize,
+  });
+
+  @override
+  bool get managesWindow => false;
 }
 
 sealed class WindowEvent {

@@ -111,6 +111,41 @@ class DisplayControllerPage extends HookWidget {
                     ],
                   ),
                 ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        SegmentedButton<DisplayWindowMode>(
+                          segments: const [
+                            ButtonSegment(
+                              value: DisplayWindowMode.separate,
+                              label: Text('Separate windows'),
+                              icon: Icon(Icons.filter_none),
+                            ),
+                            ButtonSegment(
+                              value: DisplayWindowMode.composite,
+                              label: Text('Single layout'),
+                              icon: Icon(Icons.dashboard),
+                            ),
+                          ],
+                          selected: {state.windowMode},
+                          onSelectionChanged:
+                              state.switchingMode ||
+                                  state.rows.any((r) => r.busy)
+                              ? null
+                              : (selection) =>
+                                    vm.actions.setWindowMode(selection.first),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
                 if (state.permission != PermissionState.granted &&
                     !permissionBannerDismissed.value)
                   MaterialBanner(
@@ -189,7 +224,10 @@ class DisplayControllerPage extends HookWidget {
         }
         if (mode == DisplayViewMode.layout) {
           return DisplayLayoutView(
-            rows: state.rows,
+            rows: [
+              for (final row in state.rows)
+                row.copyWith(busy: row.busy || state.switchingMode),
+            ],
             onChanged: vm.actions.setEnabled,
           );
         }
@@ -199,7 +237,7 @@ class DisplayControllerPage extends HookWidget {
             final row = state.rows[i];
             return DisplayRow(
               key: ValueKey(row.info.id),
-              row: row,
+              row: row.copyWith(busy: row.busy || state.switchingMode),
               onChanged: (on) => vm.actions.setEnabled(row.info.id, on),
             );
           },

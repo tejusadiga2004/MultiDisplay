@@ -100,19 +100,11 @@ class DisplayRow extends HookWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            info.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodyLarge,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        DisplayKindLabel(kind: info.kind),
-                      ],
+                    Text(
+                      info.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyLarge,
                     ),
                     Text(
                       formatDisplaySubtitle(info),
@@ -132,6 +124,9 @@ class DisplayRow extends HookWidget {
                   ],
                 ),
               ),
+              const SizedBox(width: 12),
+              DisplayKindLabel(kind: info.kind),
+              const SizedBox(width: 40),
               if (row.busy)
                 const Padding(
                   padding: EdgeInsets.only(right: 12),

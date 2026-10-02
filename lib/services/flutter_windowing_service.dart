@@ -14,13 +14,14 @@ import 'package:flutter/src/widgets/_window_macos.dart';
 import 'package:flutter/src/widgets/_window_win32.dart';
 
 import '../ui/display_window/display_window_page.dart';
+import '../ui/display_window/composite_window_page.dart';
 import '../ui/theme.dart';
 import 'window_service.dart';
 
-const Size kControllerWindowSize = Size(560, 640);
+const Size kControllerWindowSize = Size(640, 640);
 const BoxConstraints kControllerWindowConstraints = BoxConstraints(
-  minWidth: 480,
-  minHeight: 360,
+  minWidth: 640,
+  minHeight: 480,
 );
 const BoxConstraints kDisplayWindowConstraints = BoxConstraints(
   minWidth: 320,
@@ -64,20 +65,26 @@ class _DisplayWindowDelegate with WindowControllerDelegate {
 class _ControllerWindowDelegate with WindowControllerDelegate {
   _ControllerWindowDelegate(this._onClosed);
 
-  final Future<void> Function() _onClosed;
+  final Future<void> Function(int nativeHandle) _onClosed;
+  bool _closing = false;
 
   @override
   void onWindowCloseRequested(WindowController controller) {
-    // D-8: closing the Display Controller closes all DisplayWindows and quits.
-    _onClosed().whenComplete(controller.destroy);
+    if (_closing) return;
+    _closing = true;
+    final handle = Platform.isMacOS
+        ? (controller as BaseWindowControllerMacOS).windowHandle.address
+        : (controller as BaseWindowControllerWin32).windowHandle.address;
+    unawaited(_onClosed(handle));
   }
 }
 
 class FlutterWindowingService implements WindowService {
   FlutterWindowingService({required this.onControllerClosed});
 
-  /// Invoked after the Display Controller window is closed (D-8).
-  final Future<void> Function() onControllerClosed;
+  /// Invoked once when closing the Display Controller is requested (D-8).
+  /// Owns hiding the windows, cleaning up capture, and terminating the app.
+  final Future<void> Function(int nativeHandle) onControllerClosed;
 
   final Map<String, _OpenWindow> _open = {};
   final StreamController<WindowEvent> _events =
@@ -137,7 +144,9 @@ class FlutterWindowingService implements WindowService {
     final controller = WindowController(
       size: Size(spec.logicalSize.width, spec.logicalSize.height),
       constraints: kDisplayWindowConstraints,
-      title: spec.info.value.name,
+      title: spec is CompositeWindowSpec
+          ? 'Display layout'
+          : spec.info.value.name,
       delegate: delegate,
     );
     final handle = _nativeHandle(controller);
@@ -146,7 +155,9 @@ class FlutterWindowingService implements WindowService {
       controller: controller,
       builder: (_) => WindowApp(
         title: spec.info.value.name,
-        home: DisplayWindowPage(spec: spec, nativeHandle: handle),
+        home: spec is CompositeWindowSpec
+            ? CompositeWindowPage(spec: spec, nativeHandle: handle)
+            : DisplayWindowPage(spec: spec, nativeHandle: handle),
       ),
     );
     record = _OpenWindow(controller, entry, spec);
@@ -183,6 +194,7 @@ class FlutterWindowingService implements WindowService {
   void _finish(String displayId) {
     final rec = _open.remove(displayId);
     if (rec == null) return;
+    rec.spec.active = false;
     final pending = rec.pendingReady;
     if (pending != null && !pending.isCompleted) {
       pending.completeError(
