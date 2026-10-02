@@ -1,7 +1,9 @@
 ﻿/// Domain model shared by every layer (SPEC Â§5, Â§6.1).
 library;
 
-enum DisplayKind { physical, virtual, unknown }
+/// `builtIn` = internal panel (laptop/iMac), `physical` = external monitor,
+/// `virtual` = indirect/virtual output (D-6), `unknown` = can't be determined.
+enum DisplayKind { builtIn, physical, virtual, unknown }
 
 enum CaptureStatus { available, permissionDenied, unsupported, protected }
 

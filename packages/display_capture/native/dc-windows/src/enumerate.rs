@@ -19,10 +19,13 @@ use windows::Win32::UI::HiDpi::{GetDpiForMonitor, MDT_EFFECTIVE_DPI};
 
 use crate::types::*;
 
-/// `DISPLAYCONFIG_OUTPUT_TECHNOLOGY_INDIRECT_WIRED`
-const OUTPUT_TECH_INDIRECT_WIRED: i32 = 11;
-/// `DISPLAYCONFIG_OUTPUT_TECHNOLOGY_INDIRECT_VIRTUAL`
-const OUTPUT_TECH_INDIRECT_VIRTUAL: i32 = 12;
+// `DISPLAYCONFIG_VIDEO_OUTPUT_TECHNOLOGY` values (wingdi.h).
+const OUTPUT_TECH_LVDS: i32 = 6;
+const OUTPUT_TECH_DISPLAYPORT_EMBEDDED: i32 = 11;
+const OUTPUT_TECH_UDI_EMBEDDED: i32 = 13;
+const OUTPUT_TECH_INDIRECT_WIRED: i32 = 16;
+const OUTPUT_TECH_INDIRECT_VIRTUAL: i32 = 17;
+const OUTPUT_TECH_INTERNAL: i32 = 0x8000_0000_u32 as i32;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct DisplayRecord {
@@ -45,13 +48,18 @@ pub struct DisplayRecord {
 // ---------------------------------------------------------------------------
 
 /// D-6: a display whose name contains "Virtual" (case-insensitive) is virtual;
-/// otherwise the OS output technology decides; unknown if it can't be matched.
+/// otherwise the OS output technology decides (indirect → virtual, embedded /
+/// internal → built-in, anything else → physical); unknown if it can't be matched.
 pub fn classify_kind(name: &str, output_technology: Option<i32>) -> i32 {
     if name.to_lowercase().contains("virtual") {
         return DC_KIND_VIRTUAL;
     }
     match output_technology {
         Some(OUTPUT_TECH_INDIRECT_WIRED) | Some(OUTPUT_TECH_INDIRECT_VIRTUAL) => DC_KIND_VIRTUAL,
+        Some(OUTPUT_TECH_LVDS)
+        | Some(OUTPUT_TECH_DISPLAYPORT_EMBEDDED)
+        | Some(OUTPUT_TECH_UDI_EMBEDDED)
+        | Some(OUTPUT_TECH_INTERNAL) => DC_KIND_BUILTIN,
         Some(_) => DC_KIND_PHYSICAL,
         None => DC_KIND_UNKNOWN,
     }
@@ -317,10 +325,19 @@ mod tests {
 
     #[test]
     fn indirect_output_is_virtual() {
-        assert_eq!(classify_kind("Generic Monitor", Some(11)), DC_KIND_VIRTUAL);
-        assert_eq!(classify_kind("Generic Monitor", Some(12)), DC_KIND_VIRTUAL);
+        assert_eq!(classify_kind("Generic Monitor", Some(16)), DC_KIND_VIRTUAL);
+        assert_eq!(classify_kind("Generic Monitor", Some(17)), DC_KIND_VIRTUAL);
         assert_eq!(classify_kind("Dell U2723QE", Some(10)), DC_KIND_PHYSICAL);
         assert_eq!(classify_kind("Dell U2723QE", None), DC_KIND_UNKNOWN);
+    }
+
+    #[test]
+    fn embedded_or_internal_output_is_builtin() {
+        assert_eq!(classify_kind("Laptop Panel", Some(6)), DC_KIND_BUILTIN);
+        assert_eq!(classify_kind("Laptop Panel", Some(11)), DC_KIND_BUILTIN);
+        assert_eq!(classify_kind("Laptop Panel", Some(13)), DC_KIND_BUILTIN);
+        assert_eq!(classify_kind("Laptop Panel", Some(i32::MIN)), DC_KIND_BUILTIN);
+        assert_eq!(classify_kind("Virtual Panel", Some(11)), DC_KIND_VIRTUAL);
     }
 
     #[test]

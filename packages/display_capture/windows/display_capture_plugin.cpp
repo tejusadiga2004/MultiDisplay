@@ -61,6 +61,7 @@ const char* KindName(int32_t k) {
   switch (k) {
     case DC_KIND_PHYSICAL: return "physical";
     case DC_KIND_VIRTUAL: return "virtual";
+    case DC_KIND_BUILTIN: return "builtIn";
     default: return "unknown";
   }
 }

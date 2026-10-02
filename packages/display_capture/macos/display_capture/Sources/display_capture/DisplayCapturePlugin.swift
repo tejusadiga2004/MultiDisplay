@@ -260,8 +260,14 @@ public final class DisplayCapturePlugin: NSObject, FlutterPlugin, @unchecked Sen
         let visible = screen?.visibleFrame ?? frame
         let uuid = CGDisplayCreateUUIDFromDisplayID(displayId)
             .map { CFUUIDCreateString(nil, $0.takeRetainedValue()) as String } ?? "display-\(displayId)"
-        let kind: String = displayName.localizedCaseInsensitiveContains("virtual")
-            || CGDisplayVendorNumber(displayId) == 0 ? "virtual" : "physical"
+        let kind: String = if displayName.localizedCaseInsensitiveContains("virtual")
+            || CGDisplayVendorNumber(displayId) == 0 {
+            "virtual"
+        } else if CGDisplayIsBuiltin(displayId) != 0 {
+            "builtIn"
+        } else {
+            "physical"
+        }
         let capturable = shareableIds.contains(displayId)
         let captureStatus = denied ? "permissionDenied" : (capturable ? "available" : "unsupported")
         let detail: Any = if denied {

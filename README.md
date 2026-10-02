@@ -57,13 +57,31 @@ Display Controller before starting a capture.
 
 ## Continuous integration
 
-[`.github/workflows/windows-build.yml`](.github/workflows/windows-build.yml) runs on
-every push to `main`/`master`, every pull request and on demand. It installs Flutter
+[`.github/workflows/windows-build.yml`](.github/workflows/windows-build.yml) runs
+only on manual dispatch. It installs Flutter
 at the pinned commit, runs `flutter analyze`, the Dart and Rust tests, builds the
 release app and uploads `display-controller-windows-x64.zip` as a workflow artifact.
 
-To move to a newer Flutter, change `FLUTTER_COMMIT` in the workflow and the commit
-above together, after checking that the app still builds and runs.
+[`macos-build.yml`](.github/workflows/macos-build.yml) also runs only on manual dispatch
+using a macOS 26 runner. It installs the pinned Flutter revision and Xcode Metal
+toolchain, enables multi-window support and Swift Package Manager, runs analysis
+and Dart tests, and builds a universal release app for Apple Silicon and Intel.
+It verifies both executable architectures, the app icon and compiled Metal
+shaders, then uploads `multi-display-macos-universal.zip` containing
+`Multi Display.app` as a workflow artifact (retained for 14 days).
+
+Download the ZIP from the **Build macOS** run's **Artifacts** section in GitHub
+Actions. These CI builds use local/ad-hoc signing, not Developer ID signing or
+Apple notarization; distributing a trusted app outside the App Store requires
+additional Apple Developer credentials and signing/notarization steps. No Apple
+credentials are needed for this build workflow.
+
+To start either pipeline, open **Actions** in GitHub, select **Build Windows** or
+**Build macOS**, then click **Run workflow** and choose the branch. Neither
+workflow runs automatically on pushes or pull requests.
+
+To move to a newer Flutter, change `FLUTTER_COMMIT` in both workflows and the
+commit above together, after checking that the app still builds and runs.
 
 ## App icon
 

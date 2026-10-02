@@ -5,8 +5,11 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 
 import '../../services/app_services.dart';
 import 'display_controller_state.dart';
+import 'display_layout_view.dart';
 import 'display_row.dart';
 import 'use_display_controller_view_model.dart';
+
+enum DisplayViewMode { list, layout }
 
 class DisplayControllerPage extends HookWidget {
   const DisplayControllerPage({super.key});
@@ -16,6 +19,7 @@ class DisplayControllerPage extends HookWidget {
     final vm = useDisplayControllerViewModel();
     final state = vm.state;
     final permissionBannerDismissed = useState(false);
+    final viewMode = useState(DisplayViewMode.list);
 
     // One-shot effects -> SnackBars.
     final effects = useStream(vm.actions.effects);
@@ -84,6 +88,26 @@ class DisplayControllerPage extends HookWidget {
                           ],
                         ),
                       ),
+                      SegmentedButton<DisplayViewMode>(
+                        key: const ValueKey('viewModeToggle'),
+                        showSelectedIcon: false,
+                        segments: const [
+                          ButtonSegment(
+                            value: DisplayViewMode.list,
+                            icon: Icon(Icons.view_list),
+                            label: Text('List'),
+                            tooltip: 'Display list',
+                          ),
+                          ButtonSegment(
+                            value: DisplayViewMode.layout,
+                            icon: Icon(Icons.dashboard_outlined),
+                            label: Text('Layout'),
+                            tooltip: 'Display layout',
+                          ),
+                        ],
+                        selected: {viewMode.value},
+                        onSelectionChanged: (s) => viewMode.value = s.first,
+                      ),
                     ],
                   ),
                 ),
@@ -108,7 +132,7 @@ class DisplayControllerPage extends HookWidget {
                       ),
                     ],
                   ),
-                Expanded(child: _body(context, vm)),
+                Expanded(child: _body(context, vm, viewMode.value)),
               ],
             ),
           ),
@@ -117,7 +141,11 @@ class DisplayControllerPage extends HookWidget {
     );
   }
 
-  Widget _body(BuildContext context, DisplayControllerViewModel vm) {
+  Widget _body(
+    BuildContext context,
+    DisplayControllerViewModel vm,
+    DisplayViewMode mode,
+  ) {
     final state = vm.state;
     switch (state.status) {
       case ViewStatus.loading:
@@ -157,6 +185,12 @@ class DisplayControllerPage extends HookWidget {
                 Text('No displays found'),
               ],
             ),
+          );
+        }
+        if (mode == DisplayViewMode.layout) {
+          return DisplayLayoutView(
+            rows: state.rows,
+            onChanged: vm.actions.setEnabled,
           );
         }
         return ListView.builder(

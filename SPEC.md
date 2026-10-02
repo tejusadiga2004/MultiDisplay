@@ -148,7 +148,7 @@ VirtualMonitor/
 | `refreshRateHz` | `double` | `0` if unknown. |
 | `originX`, `originY` | `int` | Top-left in the OS virtual desktop in **physical pixels**. |
 | `isPrimary` | `bool` | |
-| `kind` | `enum { physical, virtual, unknown }` | D-6. |
+| `kind` | `enum { builtIn, physical, virtual, unknown }` | D-6. `builtIn` = internal panel, `physical` = external monitor. |
 | `captureStatus` | `enum { available, permissionDenied, unsupported, protected }` | D-9. |
 | `captureStatusDetail` | `String?` | Human-readable reason when not `available`. |
 
@@ -158,7 +158,7 @@ Ordering: primary first, then ascending `originX`, then `originY`, then `id`.
 
 **Windows (Rust, `dc-windows`)**
 * Enumerate with `EnumDisplayMonitors` + `GetMonitorInfoW`(`MONITORINFOEXW`) for geometry; `EnumDisplaySettingsW(ENUM_CURRENT_SETTINGS)` for pixels/Hz; `GetDpiForMonitor(MDT_EFFECTIVE_DPI)/96` for scale.
-* Name & kind: `QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS)` → match `DISPLAYCONFIG_PATH_INFO.sourceInfo.id` to the monitor's GDI device name via `DisplayConfigGetDeviceInfo(DISPLAYCONFIG_SOURCE_DEVICE_NAME)`; read `DISPLAYCONFIG_TARGET_DEVICE_NAME.monitorFriendlyDeviceName` (fallback `EnumDisplayDevicesW` DeviceString, fallback `"Display n"`). `kind = virtual` iff the display name contains "Virtual" (case-insensitive, D-6) **or** `outputTechnology ∈ {DISPLAYCONFIG_OUTPUT_TECHNOLOGY_INDIRECT_WIRED (11), DISPLAYCONFIG_OUTPUT_TECHNOLOGY_INDIRECT_VIRTUAL (12)}`; else `physical`; `unknown` when the path can't be matched.
+* Name & kind: `QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS)` → match `DISPLAYCONFIG_PATH_INFO.sourceInfo.id` to the monitor's GDI device name via `DisplayConfigGetDeviceInfo(DISPLAYCONFIG_SOURCE_DEVICE_NAME)`; read `DISPLAYCONFIG_TARGET_DEVICE_NAME.monitorFriendlyDeviceName` (fallback `EnumDisplayDevicesW` DeviceString, fallback `"Display n"`). `kind = virtual` iff the display name contains "Virtual" (case-insensitive, D-6) **or** `outputTechnology ∈ {DISPLAYCONFIG_OUTPUT_TECHNOLOGY_INDIRECT_WIRED (16), DISPLAYCONFIG_OUTPUT_TECHNOLOGY_INDIRECT_VIRTUAL (17)}`; `builtIn` when `outputTechnology ∈ {LVDS (6), DISPLAYPORT_EMBEDDED (11), UDI_EMBEDDED (13), INTERNAL (0x80000000)}`; else `physical`; `unknown` when the path can't be matched.
 * `id` = `"win:" + monitorDevicePath` (`DISPLAYCONFIG_TARGET_DEVICE_NAME.monitorDevicePath`) or, if unavailable, `"win:" + GDI device name`.
 * Change notification: hidden message-only window handling `WM_DISPLAYCHANGE` and `WM_DEVICECHANGE`(`DBT_DEVNODES_CHANGED`); debounce 300 ms, then re-enumerate and emit `displaysChanged`.
 
@@ -167,7 +167,7 @@ Ordering: primary first, then ascending `originX`, then `originY`, then `id`.
 * Name: matching `NSScreen` via `deviceDescription["NSScreenNumber"] == CGDirectDisplayID` → `localizedName`; fallback `"Display n"`.
 * Pixels: `CGDisplayModeGetPixelWidth/Height(CGDisplayCopyDisplayMode)`; scale = `NSScreen.backingScaleFactor`; Hz = `CGDisplayModeGetRefreshRate` (0 → unknown).
 * `id` = `"mac:" + uuidString(CGDisplayCreateUUIDFromDisplayID)`.
-* `kind`: `virtual` when the display name contains "Virtual" (case-insensitive, D-6), or when SCK reports the display but `CGDisplayVendorNumber` is `0`, or the model/vendor equals a known virtual-display vendor list kept in `VirtualDisplayVendors.swift` (initially empty, extendable); otherwise `physical`. Never throws.
+* `kind`: `virtual` when the display name contains "Virtual" (case-insensitive, D-6), or when SCK reports the display but `CGDisplayVendorNumber` is `0`, or the model/vendor equals a known virtual-display vendor list kept in `VirtualDisplayVendors.swift` (initially empty, extendable); otherwise `builtIn` when `CGDisplayIsBuiltin` is true, else `physical`. Never throws.
 * Permission: if `CGPreflightScreenCaptureAccess() == false` → every row `captureStatus = permissionDenied`, detail "Screen Recording permission required". Enumeration geometry still works via `NSScreen`/CG.
 * Change notification: `NSApplication.didChangeScreenParametersNotification` and `CGDisplayRegisterReconfigurationCallback`; debounce 300 ms.
 
@@ -420,10 +420,11 @@ SDK: Flutter `3.49.0-1.0.pre-200`, channel `main`, framework revision `fab991537
 
 * Native window title `Display Controller`; default size 560×640, min 480×360, standard OS frame (opaque title bar). Single instance (a second launch focuses the first; implemented with a per-OS single-instance lock: Windows named mutex `Global\VirtualMonitor.DisplayController`, macOS `LSMultipleInstancesProhibited=YES`, Linux `GApplication` unique `com.virtualmonitor.DisplayController`).
 * Layout (top→bottom):
-  1. Header: title `Display Controller` (headlineSmall) + subtitle `"{n} displays"` / `"1 display"` / `"No displays"`.
+  1. Header: title `Display Controller` (headlineSmall) + subtitle `"{n} displays"` / `"1 display"` / `"No displays"`; trailing `SegmentedButton` **List | Layout** switching the content view (default List, per session).
   2. Optional banners (stacked, dismissible per session, `MaterialBanner`): permission (macOS, §8.2: text *"Screen Recording permission is required to show displays."*, buttons **Grant Access** → `requestPermission`, **Open Settings** → `openPermissionSettings`); Wayland always-on-top notice (C-2); single-display feedback notice on Linux (C-3: *"Only one display is connected. The window will show itself."*).
-  3. `ListView` of `DisplayRow`s.
-* **DisplayRow** (height 72, horizontal padding 16): leading icon (`Icons.monitor`; `Icons.cast` for virtual), title = `name` (bodyLarge, 1 line, ellipsis), subtitle = `"{w}×{h} · {hz:.0f} Hz"` (+ `" · Primary"`) (+ `" · Virtual"`) — `Hz` omitted if unknown; second subtitle line `captureStatusDetail` (error color) when not `available`. Trailing `Switch` (Material 3); `value` = enabled; **disabled** when `captureStatus != available` or while a start is in flight (shows 16 px `CircularProgressIndicator` replacing the thumb area in addition to being disabled).
+  3. `ListView` of `DisplayRow`s (List), or the **Display Layout** view (Layout).
+* **Display Layout view**: each display is a rounded rectangle positioned/sized per the OS monitor arrangement, scaled uniformly to fit (24 px padding, 6 px gap). Coordinates: Windows uses physical virtual-desktop px as-is; macOS converts to points (`/ scaleFactor`) and flips y (Cocoa is y-up). Each tile shows the same details as `DisplayRow` at a fixed text size: kind label (top-left; solid-filled with white text and a white outline on selected tiles so it stays legible on green), selection indicator (top-right: green check badge when selected, nothing when unselected, spinner while busy), then centred kind icon, name (titleSmall, up to 2 lines), `"{w}×{h} • {hz} Hz"` on one line (bold dot separator), `Primary` on the next line when primary, and status detail. Lower-priority lines (icon, 2nd name line, status) are dropped on small tiles and content shrinks only if it still doesn't fit; hovering shows the full name; selected tiles have a green background (`green.shade100` light / `green.shade800` dark) with a green border. Clicking a tile toggles it exactly like the row `Switch`, with the same disabled rules (non-capturable tiles are dimmed).
+* **DisplayRow** (height 72, horizontal padding 16): leading icon (`Icons.monitor`; `Icons.laptop` for built-in; `Icons.cast` for virtual), title = `name` (bodyLarge, 1 line, ellipsis) followed by a coloured kind label — **Built-in** (blue), **External** (orange, `physical`), **Virtual** (purple); no label for `unknown` — subtitle = `"{w}×{h} · {hz:.0f} Hz"` (+ `" · Primary"`) — `Hz` omitted if unknown; second subtitle line `captureStatusDetail` (error color) when not `available`. Trailing `Switch` (Material 3); `value` = enabled; **disabled** when `captureStatus != available` or while a start is in flight (shows 16 px `CircularProgressIndicator` replacing the thumb area in addition to being disabled).
 * Empty state: centered icon + `"No displays found"`.
 * Error state (enumeration threw): centered `"Couldn't read displays"` + message + **Retry** button.
 * Accessibility: row `Semantics(label: "{name}, {w} by {h}", toggled: enabled)`; Switch focusable, Space toggles; full keyboard navigation.

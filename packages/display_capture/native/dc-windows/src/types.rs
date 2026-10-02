@@ -15,6 +15,7 @@ pub const DC_ERR_INVALID_ARG: i32 = -8;
 pub const DC_KIND_PHYSICAL: i32 = 0;
 pub const DC_KIND_VIRTUAL: i32 = 1;
 pub const DC_KIND_UNKNOWN: i32 = 2;
+pub const DC_KIND_BUILTIN: i32 = 3;
 
 pub const DC_STATUS_AVAILABLE: i32 = 0;
 pub const DC_STATUS_PERMISSION_DENIED: i32 = 1;

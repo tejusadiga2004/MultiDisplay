@@ -1,9 +1,6 @@
 name: Build Windows
 
 on:
-  push:
-    branches: [main, master]
-  pull_request:
   workflow_dispatch:
 
 # A newer run for the same branch/PR supersedes the one in progress.
