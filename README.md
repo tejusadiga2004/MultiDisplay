@@ -60,17 +60,22 @@ Display Controller before starting a capture.
 [`.github/workflows/windows-build.yml`](.github/workflows/windows-build.yml) runs
 only on manual dispatch. It installs Flutter
 at the pinned commit, runs `flutter analyze`, the Dart and Rust tests, builds the
-release app and uploads `display-controller-windows-x64.zip` as a workflow artifact.
+release app and packages a per-user Inno Setup installer and portable ZIP.
+The packages include the app-local Visual C++ runtime DLLs from Visual Studio's
+redistributable directory, so installation does not require an elevated runtime
+installer.
+The workflow also smoke-tests silent installation and uninstallation.
 
 [`macos-build.yml`](.github/workflows/macos-build.yml) also runs only on manual dispatch
 using a macOS 26 runner. It installs the pinned Flutter revision and Xcode Metal
 toolchain, enables multi-window support and Swift Package Manager, runs analysis
 and Dart tests, and builds a universal release app for Apple Silicon and Intel.
 It verifies both executable architectures, the app icon and compiled Metal
-shaders, then uploads `multi-display-macos-universal.zip` containing
-`Multi Display.app` as a workflow artifact (retained for 14 days).
+shaders, then packages a drag-to-Applications DMG and a portable ZIP containing
+`Multi Display.app`. Both workflows upload installers, ZIPs and SHA-256 checksum
+files as artifacts retained for 14 days.
 
-Download the ZIP from the **Build macOS** run's **Artifacts** section in GitHub
+Download the packages from the run's **Artifacts** section in GitHub
 Actions. These CI builds use local/ad-hoc signing, not Developer ID signing or
 Apple notarization; distributing a trusted app outside the App Store requires
 additional Apple Developer credentials and signing/notarization steps. No Apple
@@ -82,6 +87,44 @@ workflow runs automatically on pushes or pull requests.
 
 To move to a newer Flutter, change `FLUTTER_COMMIT` in both workflows and the
 commit above together, after checking that the app still builds and runs.
+
+## Installers (development builds)
+
+Versioned filenames use `pubspec.yaml`, including its build number, for example:
+
+- Windows: `Multi-Display-1.0.0-build.1-windows-x64-setup.exe`
+- macOS: `Multi-Display-1.0.0-build.1-macos-universal.dmg`
+
+Windows Setup installs to `%LOCALAPPDATA%\Programs\Multi Display` without
+administrator privileges, creates a Start Menu shortcut, offers an optional
+desktop shortcut and registers an uninstaller. A stable installer ID lets newer
+installers update the same installation. Close the app before upgrading.
+Uninstalling leaves user settings intact. Unsigned builds may trigger SmartScreen.
+
+On macOS, open the DMG and drag the app onto the Applications shortcut. Quit the
+app before replacing an older copy. The included `INSTALL.txt` describes Screen
+Recording permission and development-build security warnings. Installing does
+not grant permission automatically. Remove the app from Applications to uninstall;
+settings are not intentionally deleted.
+
+To package an existing release build locally:
+
+```powershell
+# Windows: Visual Studio C++ tools and Inno Setup 6 must be installed.
+pwsh -File tools/installers/windows/package.ps1
+```
+
+```bash
+# macOS: requires a universal release build.
+bash tools/installers/macos/package.sh
+```
+
+Outputs are written to `build/installers/windows` or `build/installers/macos`.
+Verify downloads against the accompanying `SHA256SUMS.txt` file using
+`Get-FileHash -Algorithm SHA256` (Windows) or `shasum -a 256 -c <file>` (macOS).
+These installers do not provide automatic updates or publish GitHub Releases.
+Developer ID signing/notarization and Windows Authenticode signing remain a
+separate distribution phase; no signing credentials are used by these workflows.
 
 ## App icon
 

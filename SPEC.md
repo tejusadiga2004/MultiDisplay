@@ -53,7 +53,7 @@ Each row is binding for implementation. "Confirm?" records product-owner sign-of
 | D-12 | Languages / theming. | English only (strings externalised in ARB files for later translation). Material 3, follows system light/dark. | Not specified. | No |
 | D-13 | Multi-window mechanism in Flutter. | **CONFIRMED (owner decision): Flutter's experimental built-in windowing API** (Flutter `main` channel, enabled with `flutter config --enable-windowing`). **One engine, one isolate, one `FlutterView` per window** (Display Controller + each DisplayWindow). No `desktop_multi_window` package. Facts about the installed SDK that drive the design are in §9.0a. Anything that API lacks (always-on-top, transparent title bar, window position, capture exclusion) is done in the `display_capture` plugin using the native window handle the API exposes. | Owner decision. | Confirmed |
 | D-14 | Min OS versions. | Windows **10 2004 (build 19041)**; macOS **14.0** (owner decision; ScreenCaptureKit; Metal required); Linux: GTK 3, Mesa/Vulkan 1.1+ driver, PipeWire ≥ 0.3.40 + xdg-desktop-portal ScreenCast v4+ **or** X11 session (fallback §8.3). | API availability. | No |
-| D-15 | Distribution/signing. | Out of scope for v1 (dev builds). macOS app **not sandboxed**; hardened runtime allowed. | Not specified. | No |
+| D-15 | Distribution/signing. | Development installers: per-user Inno Setup EXE (Windows x64) and drag-to-Applications DMG (macOS universal), plus portable ZIPs and SHA-256 checksums via manual-only CI. Versions come from `pubspec.yaml`; upgrades preserve settings. macOS app **not sandboxed**; hardened runtime allowed. Trusted distribution signing/notarization remains a separate phase requiring credentials. | Owner requested development installers. | Confirmed |
 
 
 ---
@@ -573,4 +573,4 @@ Material 3, seed colour `0xFF3F6AE0`. Controller uses default scaffold. DisplayW
 ---
 
 ## 15. Explicitly out of scope (v1)
-Audio capture; remote/network streaming; input forwarding to mirrored displays; recording to a file; per-window crop/zoom; window-level capture (only whole displays); multiple Controllers; localisation beyond English; installers/notarization/signing (D-15); mobile/web platforms.
+Audio capture; remote/network streaming; input forwarding to mirrored displays; recording to a file; per-window crop/zoom; window-level capture (only whole displays); multiple Controllers; localisation beyond English; distribution notarization/signing and automatic updates (D-15); mobile/web platforms.

@@ -1,0 +1,17 @@
+Multi Display - development build
+
+Requires macOS 14 or newer. Supports Apple Silicon and Intel Macs.
+
+1. Quit any running copy of Multi Display before installing or upgrading.
+2. Drag Multi Display.app onto the Applications shortcut.
+3. For an upgrade, choose Replace when Finder asks.
+4. Eject this disk image and launch Multi Display from Applications.
+5. Grant Screen Recording permission in System Settings > Privacy & Security,
+   then quit and relaunch Multi Display to start capture.
+
+This development build is not Developer ID-signed or notarized. macOS may block
+it. Only if you trust its source, follow the explicit approval option in
+System Settings > Privacy & Security. Do not disable Gatekeeper globally.
+
+To uninstall, quit the app and move it from Applications to Trash.
+Replacing or removing the app does not intentionally delete user settings.

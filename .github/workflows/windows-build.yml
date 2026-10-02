@@ -112,20 +112,52 @@ jobs:
       - name: Build Windows (release)
         run: flutter build windows --release
 
-      - name: Package
+      - name: Install Inno Setup if needed
         shell: pwsh
         run: |
-          $release = 'build\windows\x64\runner\Release'
-          foreach ($f in 'display_controller.exe', 'dc_windows.dll', 'display_capture_plugin.dll', 'flutter_windows.dll') {
-            if (-not (Test-Path (Join-Path $release $f))) { throw "Missing build output: $f" }
+          $ErrorActionPreference = 'Stop'
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup --yes --no-progress
+            if ($LASTEXITCODE -ne 0) { throw 'Inno Setup installation failed' }
           }
-          Compress-Archive -Path "$release\*" -DestinationPath display-controller-windows-x64.zip
-          Get-Item display-controller-windows-x64.zip | Select-Object Name, Length
 
-      - name: Upload artifact
+      - name: Package installer and portable build
+        shell: pwsh
+        run: ./tools/installers/windows/package.ps1
+
+      - name: Smoke-test installation and uninstallation
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $setups = @(Get-ChildItem 'build\installers\windows\*-setup.exe')
+          if ($setups.Count -ne 1) { throw 'Expected exactly one installer' }
+          $destination = Join-Path $env:RUNNER_TEMP "Multi Display install test"
+          try {
+            $process = Start-Process $setups[0].FullName -Wait -PassThru -ArgumentList `
+              "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /DIR=`"$destination`""
+            if ($process.ExitCode -ne 0) { throw "Installer failed: $($process.ExitCode)" }
+            foreach ($file in 'display_controller.exe', 'dc_windows.dll', 'flutter_windows.dll',
+                'msvcp140.dll', 'vcruntime140.dll', 'data\icudtl.dat', 'unins000.exe') {
+              if (-not (Test-Path (Join-Path $destination $file))) {
+                throw "Missing installed file: $file"
+              }
+            }
+          } finally {
+            $uninstaller = Join-Path $destination 'unins000.exe'
+            if (Test-Path $uninstaller) {
+              $process = Start-Process $uninstaller -Wait -PassThru -ArgumentList `
+                '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART'
+              if ($process.ExitCode -ne 0) { throw "Uninstall failed: $($process.ExitCode)" }
+            }
+          }
+          if (Test-Path (Join-Path $destination 'display_controller.exe')) {
+            throw 'Uninstaller left the application executable behind'
+          }
+
+      - name: Upload installer, portable build and checksums
         uses: actions/upload-artifact@v4
         with:
-          name: display-controller-windows-x64
-          path: display-controller-windows-x64.zip
+          name: multi-display-windows-x64
+          path: build/installers/windows/*
           if-no-files-found: error
           retention-days: 14
