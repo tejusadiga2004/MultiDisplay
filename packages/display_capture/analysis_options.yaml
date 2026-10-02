@@ -1,5 +1,6 @@
-include: package:flutter_lints/flutter.yaml
-
+# The plugin has no Dart code of its own (native platform layer only). It does not
+# depend on flutter_lints, so it must not include it: an unresolved include is an
+# analyzer warning and would fail `flutter analyze` (and CI).
 analyzer:
   exclude:
     - build/**
