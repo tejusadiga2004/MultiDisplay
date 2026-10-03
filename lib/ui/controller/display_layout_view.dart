@@ -157,15 +157,15 @@ class DisplayTile extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         if (showIcon) ...[
-          Icon(displayKindIcon(info.kind), size: 28, color: fgMuted),
-          const SizedBox(height: 6),
+          Icon(displayKindIcon(info.kind), size: 22, color: fgMuted),
+          const SizedBox(height: 4),
         ],
         Text(
           info.name,
           maxLines: h >= 130 ? 2 : 1,
           overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.center,
-          style: theme.textTheme.titleSmall?.copyWith(
+          style: theme.textTheme.bodySmall?.copyWith(
             color: fg,
             fontWeight: FontWeight.w600,
             height: 1.2,
@@ -191,25 +191,19 @@ class DisplayTile extends StatelessWidget {
             textAlign: TextAlign.center,
             style: detailStyle,
           ),
-          if (info.isPrimary)
-            Text(
-              'Primary',
-              maxLines: 1,
-              style: detailStyle?.copyWith(fontWeight: FontWeight.w600),
-            ),
         ],
-        if (showStatus) ...[
-          const SizedBox(height: 4),
-          Text(
-            info.captureStatusDetail!,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.error,
-            ),
-          ),
-        ],
+        // if (showStatus) ...[
+        //   const SizedBox(height: 4),
+        //   Text(
+        //     info.captureStatusDetail!,
+        //     maxLines: 2,
+        //     overflow: TextOverflow.ellipsis,
+        //     textAlign: TextAlign.center,
+        //     style: theme.textTheme.bodySmall?.copyWith(
+        //       color: theme.colorScheme.error,
+        //     ),
+        //   ),
+        // ],
       ],
     );
 
@@ -221,7 +215,23 @@ class DisplayTile extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                DisplayKindLabel(kind: info.kind, filled: row.enabled),
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        DisplayKindLabel(kind: info.kind, filled: row.enabled),
+                        if (info.isPrimary) ...[
+                          const SizedBox(width: 4),
+                          PrimaryDisplayLabel(filled: row.enabled),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
                 const Spacer(),
                 _selectionIndicator(row.enabled, checkColor),
               ],
@@ -257,7 +267,7 @@ class DisplayTile extends StatelessWidget {
   /// Spinner while starting, a check mark when selected, otherwise an empty
   /// slot of the same size so the tile content doesn't shift.
   Widget _selectionIndicator(bool selected, Color color) {
-    const size = 22.0;
+    const size = 18.0;
     if (row.busy) {
       return const SizedBox(
         width: size,
@@ -277,7 +287,7 @@ class DisplayTile extends StatelessWidget {
         shape: BoxShape.circle,
         border: Border.all(color: Colors.white, width: 1.5),
       ),
-      child: const Icon(Icons.check, size: 14, color: Colors.white),
+      child: const Icon(Icons.check, size: 12, color: Colors.white),
     );
   }
 }

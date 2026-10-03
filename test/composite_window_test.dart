@@ -81,9 +81,53 @@ class TestWindows implements WindowService {
 }
 
 void main() {
+  testWidgets('permission banner is compact and dismissible at minimum size', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(640, 480);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final windows = TestWindows();
+    final api = FakeDisplayCaptureApi(displays: [display('a')])
+      ..permission = PermissionState.denied;
+    await tester.pumpWidget(
+      AppServices(
+        api: api,
+        windows: windows,
+        settings: MemorySettingsStore(),
+        child: const MaterialApp(home: DisplayControllerPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final banner = find.byKey(const ValueKey('permissionBanner'));
+    expect(banner, findsOneWidget);
+    // At most two text lines plus padding and margin (test fonts are wide).
+    expect(tester.getSize(banner).height, lessThanOrEqualTo(80));
+    final bannerBottom = tester.getBottomLeft(banner).dy;
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('viewModeToggle'))).dy,
+      greaterThan(bannerBottom),
+    );
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('windowModeToggle'))).dy,
+      greaterThan(bannerBottom),
+    );
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.byTooltip('Dismiss'));
+    await tester.pumpAndSettle();
+    expect(banner, findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    await windows.controller.close();
+  });
+
   testWidgets('Controller exposes capture mode independently of List/Layout', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(640, 480);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final windows = TestWindows();
     await tester.pumpWidget(
       AppServices(
@@ -94,14 +138,22 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Separate windows'), findsOneWidget);
-    expect(find.text('Single layout'), findsOneWidget);
-    await tester.tap(find.text('Single layout'));
+    expect(tester.takeException(), isNull);
+    final footer = find.byKey(const ValueKey('controllerFooter'));
+    expect(
+      find.descendant(of: footer, matching: find.text('1 display')),
+      findsOneWidget,
+    );
+    expect(find.text('1 display'), findsOneWidget);
+    expect(find.byTooltip('Separate windows'), findsOneWidget);
+    expect(find.byTooltip('Single layout'), findsOneWidget);
+    await tester.tap(find.byTooltip('Single layout'));
     await tester.pumpAndSettle();
     final mode = tester.widget<SegmentedButton<DisplayWindowMode>>(
-      find.byType(SegmentedButton<DisplayWindowMode>),
+      find.byKey(const ValueKey('windowModeToggle')),
     );
     expect(mode.selected, {DisplayWindowMode.composite});
+    expect(mode.showSelectedIcon, isFalse);
     expect(windows.opened, isEmpty);
     await tester.pumpWidget(const SizedBox());
     await windows.controller.close();

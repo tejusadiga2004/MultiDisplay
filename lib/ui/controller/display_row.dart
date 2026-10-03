@@ -6,14 +6,15 @@ import 'display_controller_state.dart';
 
 String formatResolution(DisplayInfo d) => '${d.widthPx}×${d.heightPx}';
 
-/// "3840×2160 · 60 Hz · Primary" (SPEC §9.2). The kind is shown as a
-/// [DisplayKindLabel] instead of subtitle text.
+/// "3840×2160 · 60 Hz" (SPEC §9.2). Kind and primary status are shown as
+/// [DisplayKindLabel] / [PrimaryDisplayLabel] badges instead of subtitle text.
 String formatDisplaySubtitle(DisplayInfo d) {
   final parts = <String>[formatResolution(d)];
   if (d.refreshRateHz > 0) parts.add('${d.refreshRateHz.round()} Hz');
-  if (d.isPrimary) parts.add('Primary');
   return parts.join(' · ');
 }
+
+const Color kPrimaryLabelColor = Colors.teal;
 
 /// Text + colour for each [DisplayKind]; `null` for [DisplayKind.unknown].
 ({String text, Color color})? displayKindLabel(DisplayKind kind) =>
@@ -43,6 +44,30 @@ class DisplayKindLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     final label = displayKindLabel(kind);
     if (label == null) return const SizedBox.shrink();
+    return _Badge(text: label.text, color: label.color, filled: filled);
+  }
+}
+
+class PrimaryDisplayLabel extends StatelessWidget {
+  const PrimaryDisplayLabel({super.key, this.filled = false});
+
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) =>
+      _Badge(text: 'Primary', color: kPrimaryLabelColor, filled: filled);
+}
+
+class _Badge extends StatelessWidget {
+  const _Badge({required this.text, required this.color, required this.filled});
+
+  final String text;
+  final Color color;
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = (text: text, color: color);
     final dark = Theme.of(context).brightness == Brightness.dark;
     final solid = Color.lerp(label.color, Colors.black, 0.2)!;
     final fg = filled
@@ -84,17 +109,22 @@ class DisplayRow extends HookWidget {
       label: [
         info.name,
         ?displayKindLabel(info.kind)?.text,
+        if (info.isPrimary) 'Primary',
         '${info.widthPx} by ${info.heightPx}',
       ].join(', '),
       toggled: row.enabled,
       child: SizedBox(
-        height: 72,
+        height: 60,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
             children: [
-              Icon(displayKindIcon(info.kind), color: scheme.onSurfaceVariant),
-              const SizedBox(width: 16),
+              Icon(
+                displayKindIcon(info.kind),
+                size: 30,
+                color: scheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -104,27 +134,32 @@ class DisplayRow extends HookWidget {
                       info.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyLarge,
+                      style: Theme.of(context).textTheme.bodyMedium,
                     ),
                     Text(
                       formatDisplaySubtitle(info),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium
-                          ?.copyWith(color: scheme.onSurfaceVariant),
-                    ),
-                    if (!info.isCapturable && info.captureStatusDetail != null)
-                      Text(
-                        info.captureStatusDetail!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall
-                            ?.copyWith(color: scheme.error),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant.withValues(alpha: 0.4),
                       ),
+                    ),
+                    // if (!info.isCapturable && info.captureStatusDetail != null)
+                    //   Text(
+                    //     info.captureStatusDetail!,
+                    //     maxLines: 1,
+                    //     overflow: TextOverflow.ellipsis,
+                    //     style: Theme.of(context).textTheme.bodySmall
+                    //         ?.copyWith(color: scheme.error),
+                    //   ),
                   ],
                 ),
               ),
               const SizedBox(width: 12),
+              if (info.isPrimary) ...[
+                const PrimaryDisplayLabel(),
+                const SizedBox(width: 6),
+              ],
               DisplayKindLabel(kind: info.kind),
               const SizedBox(width: 40),
               if (row.busy)
@@ -136,9 +171,13 @@ class DisplayRow extends HookWidget {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
                 ),
-              Switch(
-                value: row.enabled,
-                onChanged: canToggle ? onChanged : null,
+              Transform.scale(
+                scale: 0.85,
+                transformHitTests: false,
+                child: Switch(
+                  value: row.enabled,
+                  onChanged: canToggle ? onChanged : null,
+                ),
               ),
             ],
           ),

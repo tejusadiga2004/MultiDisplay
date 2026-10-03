@@ -57,80 +57,58 @@ class DisplayControllerPage extends HookWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-                  child: Row(
-                    children: [
-                      Image.asset(
-                        'assets/icon/app_icon.png',
-                        width: 48,
-                        height: 48,
-                        filterQuality: FilterQuality.medium,
-                        semanticLabel: 'Display Controller icon',
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Display Controller',
-                              style: textTheme.headlineSmall,
-                            ),
-                            Text(
-                              subtitle,
-                              style: textTheme.bodyMedium?.copyWith(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      SegmentedButton<DisplayViewMode>(
-                        key: const ValueKey('viewModeToggle'),
-                        showSelectedIcon: false,
-                        segments: const [
-                          ButtonSegment(
-                            value: DisplayViewMode.list,
-                            icon: Icon(Icons.view_list),
-                            label: Text('List'),
-                            tooltip: 'Display list',
-                          ),
-                          ButtonSegment(
-                            value: DisplayViewMode.layout,
-                            icon: Icon(Icons.dashboard_outlined),
-                            label: Text('Layout'),
-                            tooltip: 'Display layout',
-                          ),
-                        ],
-                        selected: {viewMode.value},
-                        onSelectionChanged: (s) => viewMode.value = s.first,
-                      ),
-                    ],
+                if (state.permission != PermissionState.granted &&
+                    !permissionBannerDismissed.value)
+                  _PermissionBanner(
+                    onGrant: vm.actions.requestPermission,
+                    onOpenSettings: vm.actions.openPermissionSettings,
+                    onDismiss: () => permissionBannerDismissed.value = true,
                   ),
-                ),
+                // Padding(
+                //   padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                //   child: Row(
+                //     children: [
+                //       Image.asset(
+                //         'assets/icon/app_icon.png',
+                //         width: 32,
+                //         height: 32,
+                //         filterQuality: FilterQuality.medium,
+                //         semanticLabel: 'Display Controller icon',
+                //       ),
+                //       const SizedBox(width: 12),
+                //       Expanded(
+                //         child: Text(
+                //           'Display Controller',
+                //           style: textTheme.titleMedium,
+                //         ),
+                //       ),
+                //     ],
+                //   ),
+                // ),
                 Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
-                    vertical: 8,
+                    vertical: 16,
                   ),
                   child: Align(
                     alignment: Alignment.centerRight,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         SegmentedButton<DisplayWindowMode>(
+                          key: const ValueKey('windowModeToggle'),
+                          style: _compactButtonStyle(context),
+                          showSelectedIcon: false,
                           segments: const [
                             ButtonSegment(
                               value: DisplayWindowMode.separate,
-                              label: Text('Separate windows'),
+                              tooltip: 'Separate windows',
                               icon: Icon(Icons.filter_none),
                             ),
                             ButtonSegment(
                               value: DisplayWindowMode.composite,
-                              label: Text('Single layout'),
+                              tooltip: 'Single layout',
                               icon: Icon(Icons.dashboard),
                             ),
                           ],
@@ -142,32 +120,34 @@ class DisplayControllerPage extends HookWidget {
                               : (selection) =>
                                     vm.actions.setWindowMode(selection.first),
                         ),
+                        SegmentedButton<DisplayViewMode>(
+                          style: _compactButtonStyle(context),
+                          key: const ValueKey('viewModeToggle'),
+                          showSelectedIcon: false,
+                          segments: const [
+                            ButtonSegment(
+                              value: DisplayViewMode.list,
+                              icon: Icon(Icons.view_list),
+                              label: Text('List'),
+                              tooltip: 'Display list',
+                            ),
+                            ButtonSegment(
+                              value: DisplayViewMode.layout,
+                              icon: Icon(Icons.dashboard_outlined),
+                              label: Text('Layout'),
+                              tooltip: 'Display layout',
+                            ),
+                          ],
+                          selected: {viewMode.value},
+                          onSelectionChanged: (s) => viewMode.value = s.first,
+                        ),
                       ],
                     ),
                   ),
                 ),
-                if (state.permission != PermissionState.granted &&
-                    !permissionBannerDismissed.value)
-                  MaterialBanner(
-                    content: const Text(
-                      'Screen Recording permission is required to show displays. After granting access, relaunch Display Controller.',
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: vm.actions.requestPermission,
-                        child: const Text('Grant Access'),
-                      ),
-                      TextButton(
-                        onPressed: vm.actions.openPermissionSettings,
-                        child: const Text('Open Settings'),
-                      ),
-                      TextButton(
-                        onPressed: () => permissionBannerDismissed.value = true,
-                        child: const Text('Dismiss'),
-                      ),
-                    ],
-                  ),
+                const Divider(),
                 Expanded(child: _body(context, vm, viewMode.value)),
+                _Footer(text: subtitle),
               ],
             ),
           ),
@@ -175,6 +155,13 @@ class DisplayControllerPage extends HookWidget {
       ),
     );
   }
+
+  ButtonStyle _compactButtonStyle(BuildContext context) => ButtonStyle(
+    visualDensity: VisualDensity.compact,
+    padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 4)),
+    iconSize: const WidgetStatePropertyAll(18),
+    textStyle: WidgetStatePropertyAll(Theme.of(context).textTheme.labelSmall),
+  );
 
   Widget _body(
     BuildContext context,
@@ -231,8 +218,10 @@ class DisplayControllerPage extends HookWidget {
             onChanged: vm.actions.setEnabled,
           );
         }
-        return ListView.builder(
+        return ListView.separated(
           itemCount: state.rows.length,
+          separatorBuilder: (context, _) =>
+              const Divider(height: 1, thickness: 1, indent: 16, endIndent: 16),
           itemBuilder: (context, i) {
             final row = state.rows[i];
             return DisplayRow(
@@ -264,6 +253,100 @@ class DisplayControllerPage extends HookWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _PermissionBanner extends StatelessWidget {
+  const _PermissionBanner({
+    required this.onGrant,
+    required this.onOpenSettings,
+    required this.onDismiss,
+  });
+
+  final VoidCallback onGrant;
+  final VoidCallback onOpenSettings;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    const buttonStyle = ButtonStyle(
+      visualDensity: VisualDensity.compact,
+      padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 8)),
+    );
+    return Container(
+      key: const ValueKey('permissionBanner'),
+      margin: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+      padding: const EdgeInsets.fromLTRB(10, 4, 4, 4),
+      decoration: BoxDecoration(
+        color: scheme.errorContainer,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.warning_amber_rounded, size: 18, color: scheme.error),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Screen Recording permission required. Relaunch after granting access.',
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onErrorContainer,
+              ),
+            ),
+          ),
+          TextButton(
+            style: buttonStyle,
+            onPressed: onGrant,
+            child: const Text('Grant Access', style: TextStyle(fontSize: 12)),
+          ),
+          TextButton(
+            style: buttonStyle,
+            onPressed: onOpenSettings,
+            child: const Text('Open Settings', style: TextStyle(fontSize: 12)),
+          ),
+          IconButton(
+            tooltip: 'Dismiss',
+            visualDensity: VisualDensity.compact,
+            iconSize: 16,
+            onPressed: onDismiss,
+            icon: const Icon(Icons.close),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Footer extends StatelessWidget {
+  const _Footer({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      key: const ValueKey('controllerFooter'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Divider(height: 1, thickness: 1),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              text,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
