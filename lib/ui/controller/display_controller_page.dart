@@ -33,7 +33,6 @@ class DisplayControllerPage extends HookWidget {
       return null;
     }, [effects.data]);
 
-    final textTheme = Theme.of(context).textTheme;
     final n = state.rows.length;
     final subtitle = switch (n) {
       0 => 'No displays',

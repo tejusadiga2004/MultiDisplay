@@ -147,8 +147,6 @@ class DisplayTile extends StatelessWidget {
     final showHeader = h >= 64 && c.maxWidth >= 90;
     final showIcon = h >= 150;
     final showDetails = h >= 44;
-    final showStatus =
-        h >= 120 && !info.isCapturable && info.captureStatusDetail != null;
 
     final detailStyle = theme.textTheme.bodySmall?.copyWith(color: fgMuted);
     final hasHz = info.refreshRateHz > 0;
