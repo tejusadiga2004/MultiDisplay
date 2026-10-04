@@ -35,8 +35,11 @@ Future<void> main() async {
       windows: windows,
       settings: SharedPrefsSettingsStore(prefs),
       child: windows.buildRoot(
-        controllerBuilder: (_) =>
-            const WindowApp(home: DisplayControllerPage()),
+        controllerBuilder: (_) => WindowApp(
+          home: DisplayControllerPage(
+            onInitialContentHeight: windows.setControllerContentHeight,
+          ),
+        ),
       ),
     ),
   );

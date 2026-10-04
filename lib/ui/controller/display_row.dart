@@ -93,6 +93,8 @@ class _Badge extends StatelessWidget {
   }
 }
 
+const double kDisplayRowHeight = 60;
+
 class DisplayRow extends HookWidget {
   const DisplayRow({super.key, required this.row, required this.onChanged});
 
@@ -114,7 +116,7 @@ class DisplayRow extends HookWidget {
       ].join(', '),
       toggled: row.enabled,
       child: SizedBox(
-        height: 60,
+        height: kDisplayRowHeight,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(

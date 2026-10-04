@@ -7,9 +7,11 @@ import 'package:display_controller/services/window_service.dart';
 import 'package:display_controller/ui/controller/display_controller_logic.dart';
 import 'package:display_controller/ui/controller/display_controller_state.dart';
 import 'package:display_controller/ui/controller/display_controller_page.dart';
+import 'package:display_controller/ui/controller/display_row.dart';
 import 'package:display_controller/ui/display_window/composite_window_page.dart';
 import 'package:display_controller/ui/display_window/display_window_logic.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 DisplayInfo display(String id, {int x = 0, int y = 0}) => DisplayInfo(
@@ -81,10 +83,60 @@ class TestWindows implements WindowService {
 }
 
 void main() {
+  testWidgets(
+    'launch height includes all rows and chrome and is reported once',
+    (tester) async {
+      tester.view.physicalSize = const Size(640, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      for (final permission in [
+        PermissionState.granted,
+        PermissionState.denied,
+      ]) {
+        final windows = TestWindows();
+        final api = FakeDisplayCaptureApi(
+          displays: [for (var i = 0; i < 12; i++) display('$i')],
+        )..permission = permission;
+        final heights = <double>[];
+        await tester.pumpWidget(
+          AppServices(
+            api: api,
+            windows: windows,
+            settings: MemorySettingsStore(),
+            child: MaterialApp(
+              home: DisplayControllerPage(
+                onInitialContentHeight: (height) {
+                  expect(tester.binding.schedulerPhase, SchedulerPhase.idle);
+                  heights.add(height);
+                },
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final chromeHeight = 640 - tester.getSize(find.byType(ListView)).height;
+        expect(heights, [chromeHeight + 12 * kDisplayRowHeight + 11]);
+        if (permission == PermissionState.denied) {
+          await tester.tap(find.byTooltip('Dismiss'));
+          await tester.pumpAndSettle();
+        }
+        api.setDisplays([display('only')]);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Display layout'));
+        await tester.pumpAndSettle();
+        expect(heights, hasLength(1));
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+        await windows.controller.close();
+      }
+    },
+  );
+
   testWidgets('permission banner is compact and dismissible at minimum size', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(640, 480);
+    tester.view.physicalSize = const Size(480, 640);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -124,7 +176,7 @@ void main() {
   testWidgets('Controller exposes capture mode independently of List/Layout', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(640, 480);
+    tester.view.physicalSize = const Size(480, 640);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);

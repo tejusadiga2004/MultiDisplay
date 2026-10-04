@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:display_capture_api/display_capture_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,7 +14,9 @@ import 'use_display_controller_view_model.dart';
 enum DisplayViewMode { list, layout }
 
 class DisplayControllerPage extends HookWidget {
-  const DisplayControllerPage({super.key});
+  const DisplayControllerPage({super.key, this.onInitialContentHeight});
+
+  final ValueChanged<double>? onInitialContentHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -20,6 +24,35 @@ class DisplayControllerPage extends HookWidget {
     final state = vm.state;
     final permissionBannerDismissed = useState(false);
     final viewMode = useState(DisplayViewMode.list);
+    final bodyKey = useMemoized(GlobalKey.new);
+    final initialSizeReported = useRef(false);
+    useEffect(() {
+      if (state.status != ViewStatus.ready ||
+          initialSizeReported.value ||
+          onInitialContentHeight == null) {
+        return null;
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted || initialSizeReported.value) return;
+        final body = bodyKey.currentContext?.findRenderObject();
+        if (body is! RenderBox || !body.hasSize) return;
+        final chromeHeight =
+            MediaQuery.sizeOf(context).height - body.size.height;
+        final count = state.rows.length;
+        final listHeight = count == 0
+            ? 120.0
+            : count * kDisplayRowHeight + (count - 1);
+        initialSizeReported.value = true;
+        // Native macOS resizing can synchronously draw a frame; leave the
+        // current frame before asking the window service to resize.
+        Timer.run(() {
+          if (context.mounted) {
+            onInitialContentHeight!(chromeHeight + listHeight);
+          }
+        });
+      });
+      return null;
+    }, [state.status, onInitialContentHeight]);
 
     // One-shot effects -> SnackBars.
     final effects = useStream(vm.actions.effects);
@@ -145,7 +178,12 @@ class DisplayControllerPage extends HookWidget {
                   ),
                 ),
                 const Divider(),
-                Expanded(child: _body(context, vm, viewMode.value)),
+                Expanded(
+                  child: SizedBox(
+                    key: bodyKey,
+                    child: _body(context, vm, viewMode.value),
+                  ),
+                ),
                 _Footer(text: subtitle),
               ],
             ),

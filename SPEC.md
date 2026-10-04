@@ -418,7 +418,9 @@ SDK: Flutter `3.49.0-1.0.pre-200`, channel `main`, framework revision `fab991537
 
 ### 9.2 Display Controller window
 
-* Native window title `Display Controller`; default size 640×640, min 640×480, standard OS frame (opaque title bar). Single instance (a second launch focuses the first; implemented with a per-OS single-instance lock: Windows named mutex `Global\VirtualMonitor.DisplayController`, macOS `LSMultipleInstancesProhibited=YES`, Linux `GApplication` unique `com.virtualmonitor.DisplayController`).
+* Native window title `Display Controller`; default size 640×640, min 480×640, standard OS frame (opaque title bar). Single instance (a second launch focuses the first; implemented with a per-OS single-instance lock: Windows named mutex `Global\VirtualMonitor.DisplayController`, macOS `LSMultipleInstancesProhibited=YES`, Linux `GApplication` unique `com.virtualmonitor.DisplayController`).
+  Apply the controller's constraints explicitly with `setConstraints` after creation: Flutter's experimental macOS factory currently drops constructor constraints.
+  Once the initial display list loads, fit the launch height to the measured controls/banner/footer plus 60 px per display and 1 px per separator. Keep the 640 px minimum height and cap at the current screen's logical height minus 96 px for native/desktop chrome; excess rows scroll. This is a one-time adjustment, not repeated on hotplug, permission changes, or view changes.
 * Layout (top→bottom):
   1. Compact header: 32 px app icon and title `Display Controller` (titleMedium).
   2. Optional banners (stacked, dismissible per session, `MaterialBanner`): permission (macOS, §8.2: compact single-row banner — 18 px warning icon, bodySmall text *"Screen Recording permission required. Relaunch after granting access."* on `errorContainer`, compact buttons **Grant Access** → `requestPermission`, **Open Settings** → `openPermissionSettings`, and a close icon to dismiss); Wayland always-on-top notice (C-2); single-display feedback notice on Linux (C-3: *"Only one display is connected. The window will show itself."*).

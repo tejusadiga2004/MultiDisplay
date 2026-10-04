@@ -1,4 +1,4 @@
-// This is the ONLY file that imports Flutter's experimental windowing API
+﻿// This is the ONLY file that imports Flutter's experimental windowing API
 // (SPEC C-7). The API is @internal and may break between Flutter versions; the
 // app is pinned to the Flutter `main` checkout recorded in README.md.
 // ignore_for_file: invalid_use_of_internal_member, implementation_imports
@@ -20,8 +20,8 @@ import 'window_service.dart';
 
 const Size kControllerWindowSize = Size(640, 640);
 const BoxConstraints kControllerWindowConstraints = BoxConstraints(
-  minWidth: 640,
-  minHeight: 480,
+  minWidth: 480,
+  minHeight: 500,
 );
 const BoxConstraints kDisplayWindowConstraints = BoxConstraints(
   minWidth: 320,
@@ -90,6 +90,23 @@ class FlutterWindowingService implements WindowService {
   final StreamController<WindowEvent> _events =
       StreamController<WindowEvent>.broadcast();
   WindowRegistry? _registry;
+  WindowController? _controller;
+
+  void setControllerContentHeight(double height) {
+    final controller = _controller;
+    if (controller == null || controller.isDestroyed) return;
+    final view = controller.rootView;
+    final display = view.display;
+    // Leave room for the native frame and desktop chrome.
+    final maxHeight = (display.size.height / display.devicePixelRatio - 96)
+        .clamp(kControllerWindowConstraints.minHeight, double.infinity);
+    controller.setSize(
+      Size(
+        view.physicalSize.width / view.devicePixelRatio,
+        height.clamp(kControllerWindowConstraints.minHeight, maxHeight),
+      ),
+    );
+  }
 
   @override
   Stream<WindowEvent> get events => _events.stream;
@@ -103,6 +120,9 @@ class FlutterWindowingService implements WindowService {
       title: 'Display Controller',
       delegate: _ControllerWindowDelegate(onControllerClosed),
     );
+    // The experimental macOS factory currently drops constructor constraints.
+    controller.setConstraints(kControllerWindowConstraints);
+    _controller = controller;
     return WindowManager(
       initialWindows: [
         WindowEntry(
