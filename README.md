@@ -1,4 +1,4 @@
-# Display Controller
+# Multi Display
 
 Lists every display connected to the machine (including virtual ones) and mirrors
 each display you switch on into its own always-on-top window. See [SPEC.md](SPEC.md)
